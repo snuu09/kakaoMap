@@ -1,6 +1,8 @@
 (function () {
   var DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };
   var SEARCH_RADIUS = 3000;
+  var CLUSTER_MIN_LEVEL = 6;
+  var FADE_MS = 220;
   var BRAND_ICONS = {
     스타벅스: { src: "icons/starbucks.svg", wide: false },
     메가커피: { src: "icons/mega-coffee.png", wide: true },
@@ -28,12 +30,18 @@
       level: 3,
     });
     var places = new kakao.maps.services.Places(map);
+    var geocoder = new kakao.maps.services.Geocoder();
     var infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
     var searchMarkers = [];
     var placeItems = [];
+    var clusterItems = [];
+    var searchSeq = 0;
     var currentPosition = null;
     var currentLocationOverlay = null;
     var activeSearchKeyword = "";
+    var lastSearchNearby = false;
+    var searchQuiet = false;
+    var skipIdleOnce = false;
     var openPin = null;
     var activeOverlays = {};
 
@@ -51,6 +59,7 @@
     var sheetTitle = document.getElementById("sheet-title");
     var sheetCount = document.getElementById("sheet-count");
     var placeList = document.getElementById("place-list");
+    var areaInfo = document.getElementById("area-info");
     var SHEET_STATES = ["collapsed", "mid", "expanded"];
     var sheetState = "mid";
 
@@ -94,54 +103,208 @@
     locationBtn.addEventListener("click", moveToCurrentLocation);
     bindSheetGestures();
     bindMapTools();
+    bindMapIdle();
+    updateAreaInfo();
 
-    function searchPlaces(keyword, nearby) {
+    function searchPlaces(keyword, nearby, quiet) {
       activeSearchKeyword = keyword;
+      lastSearchNearby = nearby;
+      searchQuiet = !!quiet;
+      var seq = ++searchSeq;
+
+      function onResult(data, status) {
+        if (seq !== searchSeq) {
+          return;
+        }
+        handleSearchResult(data, status);
+      }
 
       if (nearby) {
-        places.keywordSearch(keyword, handleSearchResult, {
-          useMapCenter: true,
-          radius: SEARCH_RADIUS,
-        });
+        places.keywordSearch(keyword, onResult, nearbySearchOptions());
         return;
       }
 
-      places.keywordSearch(keyword, handleSearchResult);
+      places.keywordSearch(keyword, onResult);
+    }
+
+    function nearbySearchOptions() {
+      var level = map.getLevel();
+      if (level >= 7) {
+        return { useMapBounds: true };
+      }
+
+      return {
+        useMapCenter: true,
+        radius: Math.min(20000, 1000 * Math.pow(2, Math.max(0, level - 2))),
+      };
     }
 
     function handleSearchResult(data, status) {
       infowindow.close();
-      clearSearchMarkers();
-      hideSheet();
+
+      if (!searchQuiet) {
+        hideSheet();
+        clearSearchMarkers();
+      }
 
       if (status === kakao.maps.services.Status.ZERO_RESULT) {
+        if (searchQuiet) {
+          fadeOutAllPlaces();
+          renderPlaceList([]);
+          showSheet();
+          return;
+        }
         showDialog("검색 결과 없음", "검색 결과가 없습니다.");
         return;
       }
 
       if (status !== kakao.maps.services.Status.OK) {
-        showDialog("검색 오류", "검색 중 오류가 발생했습니다.");
+        if (!searchQuiet) {
+          showDialog("검색 오류", "검색 중 오류가 발생했습니다.");
+        }
         return;
       }
 
       var brand = BRAND_ICONS[activeSearchKeyword];
       var bounds = new kakao.maps.LatLngBounds();
 
-      data.forEach(function (place, index) {
-        var position = new kakao.maps.LatLng(place.y, place.x);
-        var item = createPlaceMarker(place, position, brand, index);
-        searchMarkers.push(item.overlay);
-        placeItems.push(item);
-        bounds.extend(position);
+      if (searchQuiet && lastSearchNearby && placeItems.length) {
+        syncFilterPlaces(data, brand);
+      } else {
+        if (searchQuiet) {
+          clearSearchMarkers();
+        }
+        data.forEach(function (place, index) {
+          var position = new kakao.maps.LatLng(place.y, place.x);
+          var item = createPlaceMarker(place, position, brand, index);
+          searchMarkers.push(item.overlay);
+          placeItems.push(item);
+        });
+      }
+
+      data.forEach(function (place) {
+        bounds.extend(new kakao.maps.LatLng(place.y, place.x));
       });
 
-      map.setBounds(bounds, 120, 110, 280, 24);
+      if (lastSearchNearby) {
+        applyFilterClustering(true);
+      } else {
+        placeItems.forEach(function (item) {
+          setPinVisible(item, true, true);
+        });
+      }
+
+      if (!searchQuiet) {
+        skipIdleOnce = true;
+        map.setBounds(bounds, 120, 110, 280, 24);
+      }
+
       renderPlaceList(data);
-      showSheet();
+      if (sheet.hidden || !searchQuiet) {
+        showSheet();
+      }
+    }
+
+    function placeKey(place) {
+      return place.id || place.x + "," + place.y + "," + place.place_name;
+    }
+
+    function motionEnabled() {
+      return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    function cancelHide(el) {
+      if (el._hideTimer) {
+        clearTimeout(el._hideTimer);
+        el._hideTimer = null;
+      }
+      el.classList.remove("is-leave");
+    }
+
+    function showOverlay(overlay, el, animate) {
+      cancelHide(el);
+      if (animate) {
+        el.classList.add("is-enter");
+      } else {
+        el.classList.remove("is-enter", "is-leave");
+      }
+      overlay.setMap(map);
+      if (animate) {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            el.classList.remove("is-enter");
+          });
+        });
+      }
+    }
+
+    function hideOverlay(overlay, el, animate) {
+      if (!animate) {
+        cancelHide(el);
+        overlay.setMap(null);
+        el.classList.remove("is-enter", "is-leave");
+        return;
+      }
+
+      cancelHide(el);
+      el.classList.remove("is-enter");
+      el.classList.add("is-leave");
+      el._hideTimer = setTimeout(function () {
+        el._hideTimer = null;
+        overlay.setMap(null);
+        el.classList.remove("is-leave");
+      }, FADE_MS);
+    }
+
+    function setPinVisible(item, visible, animate) {
+      animate = animate && motionEnabled();
+      if (visible) {
+        if (item.visible) {
+          cancelHide(item.pinEl);
+          return;
+        }
+        item.visible = true;
+        showOverlay(item.overlay, item.pinEl, animate);
+        return;
+      }
+
+      if (!item.visible) {
+        return;
+      }
+      item.visible = false;
+      hideOverlay(item.overlay, item.pinEl, animate);
+    }
+
+    function clusterSizeClass(count) {
+      if (count >= 50) {
+        return "is-lg";
+      }
+      if (count >= 10) {
+        return "is-md";
+      }
+      return "is-sm";
+    }
+
+    function zoomIntoCluster(center) {
+      skipIdleOnce = true;
+      if (map.getLevel() <= CLUSTER_MIN_LEVEL) {
+        map.setLevel(CLUSTER_MIN_LEVEL - 1, { anchor: center });
+        return;
+      }
+      map.setLevel(Math.max(CLUSTER_MIN_LEVEL - 1, map.getLevel() - 2), {
+        anchor: center,
+      });
     }
 
     function createPlaceMarker(place, position, brand, index) {
-      var number = index + 1;
+      var item = {
+        overlay: null,
+        pinEl: null,
+        place: place,
+        position: position,
+        index: index,
+        visible: false,
+      };
       var headHtml = brand
         ? '<img src="' + brand.src + '" alt="">'
         : '<img src="icons/default.svg" alt="">';
@@ -153,7 +316,7 @@
         "</div>" +
         '<div class="map-pin-body">' +
         '<span class="map-pin-badge">' +
-        number +
+        (index + 1) +
         "</span>" +
         '<div class="map-pin-head">' +
         headHtml +
@@ -161,29 +324,220 @@
         "</div>" +
         '<div class="map-pin-tail"></div>';
       content.addEventListener("click", function () {
-        selectPlace(index, false);
+        selectPlace(item.index, false);
       });
 
-      var overlay = new kakao.maps.CustomOverlay({
-        map: map,
+      item.pinEl = content;
+      item.overlay = new kakao.maps.CustomOverlay({
         position: position,
         content: content,
         yAnchor: 1,
         zIndex: 3,
       });
 
-      return {
-        overlay: overlay,
-        pinEl: content,
-        place: place,
-        position: position,
+      return item;
+    }
+
+    function syncFilterPlaces(data, brand) {
+      var nextByKey = {};
+      data.forEach(function (place, index) {
+        nextByKey[placeKey(place)] = { place: place, index: index };
+      });
+
+      var kept = {};
+      placeItems.forEach(function (item) {
+        var key = placeKey(item.place);
+        if (nextByKey[key]) {
+          kept[key] = item;
+        } else {
+          item.visible = false;
+          hideOverlay(item.overlay, item.pinEl, motionEnabled());
+        }
+      });
+
+      var nextItems = [];
+      data.forEach(function (place, index) {
+        var key = placeKey(place);
+        var existing = kept[key];
+        var position = new kakao.maps.LatLng(place.y, place.x);
+
+        if (existing) {
+          existing.place = place;
+          existing.index = index;
+          existing.position = position;
+          existing.overlay.setPosition(position);
+          var badge = existing.pinEl.querySelector(".map-pin-badge");
+          if (badge) {
+            badge.textContent = String(index + 1);
+          }
+          nextItems.push(existing);
+          return;
+        }
+
+        nextItems.push(createPlaceMarker(place, position, brand, index));
+      });
+
+      placeItems = nextItems;
+      searchMarkers = placeItems.map(function (item) {
+        return item.overlay;
+      });
+    }
+
+    function fadeOutAllPlaces() {
+      var items = placeItems.slice();
+      var clusters = clusterItems.slice();
+      placeItems = [];
+      searchMarkers = [];
+      clusterItems = [];
+      openPin = null;
+      items.forEach(function (item) {
+        hideOverlay(item.overlay, item.pinEl, motionEnabled());
+      });
+      clusters.forEach(function (cluster) {
+        hideOverlay(cluster.overlay, cluster.el, motionEnabled());
+      });
+    }
+
+    function fadeOutClusters(animate) {
+      clusterItems.forEach(function (cluster) {
+        hideOverlay(cluster.overlay, cluster.el, animate);
+      });
+      clusterItems = [];
+    }
+
+    function createClusterItem(key, next, animate) {
+      var el = document.createElement("button");
+      var cluster = {
+        key: key,
+        overlay: null,
+        el: el,
+        center: next.center,
+        count: next.count,
       };
+
+      el.type = "button";
+      el.className = "map-cluster " + clusterSizeClass(next.count);
+      el.textContent = String(next.count);
+      el.setAttribute("aria-label", next.count + "개 장소 묶음, 확대");
+      el.addEventListener("click", function (event) {
+        event.stopPropagation();
+        zoomIntoCluster(cluster.center);
+      });
+
+      cluster.overlay = new kakao.maps.CustomOverlay({
+        position: next.center,
+        content: el,
+        xAnchor: 0.5,
+        yAnchor: 0.5,
+        zIndex: 40,
+      });
+
+      showOverlay(cluster.overlay, el, animate);
+      return cluster;
+    }
+
+    function applyFilterClustering(animate) {
+      animate = animate !== false && motionEnabled();
+
+      if (!lastSearchNearby || !placeItems.length) {
+        fadeOutClusters(animate);
+        placeItems.forEach(function (item) {
+          setPinVisible(item, true, animate);
+        });
+        return;
+      }
+
+      if (map.getLevel() < CLUSTER_MIN_LEVEL) {
+        fadeOutClusters(animate);
+        placeItems.forEach(function (item) {
+          setPinVisible(item, true, animate);
+        });
+        return;
+      }
+
+      var projection = map.getProjection();
+      var gridSize = 80;
+      var buckets = {};
+
+      placeItems.forEach(function (item) {
+        var point = projection.pointFromCoords(item.position);
+        var key =
+          Math.floor(point.x / gridSize) + ":" + Math.floor(point.y / gridSize);
+        if (!buckets[key]) {
+          buckets[key] = [];
+        }
+        buckets[key].push(item);
+      });
+
+      var nextClusters = {};
+
+      Object.keys(buckets).forEach(function (key) {
+        var group = buckets[key];
+        if (group.length < 2) {
+          setPinVisible(group[0], true, animate);
+          return;
+        }
+
+        group.forEach(function (item) {
+          setPinVisible(item, false, animate);
+        });
+
+        var lat = 0;
+        var lng = 0;
+        group.forEach(function (item) {
+          lat += item.position.getLat();
+          lng += item.position.getLng();
+        });
+
+        nextClusters[key] = {
+          group: group,
+          center: new kakao.maps.LatLng(
+            lat / group.length,
+            lng / group.length
+          ),
+          count: group.length,
+        };
+      });
+
+      var remaining = [];
+      clusterItems.forEach(function (cluster) {
+        var next = nextClusters[cluster.key];
+        if (!next) {
+          hideOverlay(cluster.overlay, cluster.el, animate);
+          return;
+        }
+
+        delete nextClusters[cluster.key];
+        cancelHide(cluster.el);
+        cluster.el.className = "map-cluster " + clusterSizeClass(next.count);
+        cluster.el.textContent = String(next.count);
+        cluster.el.setAttribute(
+          "aria-label",
+          next.count + "개 장소 묶음, 확대"
+        );
+        cluster.overlay.setPosition(next.center);
+        cluster.center = next.center;
+        cluster.count = next.count;
+        remaining.push(cluster);
+      });
+
+      Object.keys(nextClusters).forEach(function (key) {
+        remaining.push(createClusterItem(key, nextClusters[key], animate));
+      });
+
+      clusterItems = remaining;
     }
 
     function renderPlaceList(data) {
       sheetTitle.textContent = activeSearchKeyword + " 검색 결과";
       sheetCount.textContent = data.length + "곳";
       placeList.innerHTML = "";
+
+      if (!data.length) {
+        placeList.innerHTML =
+          '<li class="place-empty">이 화면에서 결과를 찾지 못했습니다.</li>';
+        return;
+      }
 
       data.forEach(function (place, index) {
         var item = document.createElement("li");
@@ -266,10 +620,15 @@
         }
       );
 
-      openPin = placeItems[index].pinEl;
+      var selectedItem = placeItems[index];
+      openPin = selectedItem.pinEl;
 
       if (fromList) {
-        map.panTo(placeItems[index].position);
+        skipIdleOnce = true;
+        if (lastSearchNearby && map.getLevel() >= CLUSTER_MIN_LEVEL) {
+          map.setLevel(CLUSTER_MIN_LEVEL - 1);
+        }
+        map.panTo(selectedItem.position);
       }
 
       if (sheetState === "collapsed") {
@@ -422,11 +781,18 @@
         openPin = null;
       }
 
-      searchMarkers.forEach(function (marker) {
-        marker.setMap(null);
+      infowindow.close();
+      placeItems.forEach(function (item) {
+        cancelHide(item.pinEl);
+        item.overlay.setMap(null);
+      });
+      clusterItems.forEach(function (cluster) {
+        cancelHide(cluster.el);
+        cluster.overlay.setMap(null);
       });
       searchMarkers = [];
       placeItems = [];
+      clusterItems = [];
     }
 
     function resetToDefault() {
@@ -434,6 +800,9 @@
       clearSearchMarkers();
       hideSheet();
       input.value = "";
+      activeSearchKeyword = "";
+      lastSearchNearby = false;
+      skipIdleOnce = true;
       var target = currentPosition || defaultCenter;
       map.setCenter(target);
       map.setLevel(3);
@@ -460,6 +829,7 @@
             position.coords.latitude,
             position.coords.longitude
           );
+          skipIdleOnce = true;
           map.setCenter(currentPosition);
           map.setLevel(3);
           showCurrentLocation(currentPosition);
@@ -501,6 +871,61 @@
         position: position,
         content: '<div class="current-location-dot"></div>',
       });
+    }
+
+    function bindMapIdle() {
+      kakao.maps.event.addListener(map, "zoom_changed", function () {
+        if (lastSearchNearby && placeItems.length) {
+          applyFilterClustering(true);
+        }
+      });
+
+      kakao.maps.event.addListener(map, "idle", function () {
+        updateAreaInfo();
+
+        if (skipIdleOnce) {
+          skipIdleOnce = false;
+          return;
+        }
+
+        if (lastSearchNearby && activeSearchKeyword) {
+          searchPlaces(activeSearchKeyword, true, true);
+        }
+      });
+    }
+
+    function updateAreaInfo() {
+      var center = map.getCenter();
+      geocoder.coord2Address(
+        center.getLng(),
+        center.getLat(),
+        function (result, status) {
+          if (status === kakao.maps.services.Status.OK && result[0]) {
+            var name =
+              (result[0].road_address && result[0].road_address.address_name) ||
+              (result[0].address && result[0].address.address_name);
+            if (name) {
+              areaInfo.textContent = name;
+              areaInfo.hidden = false;
+              return;
+            }
+          }
+
+          geocoder.coord2RegionCode(
+            center.getLng(),
+            center.getLat(),
+            function (region, regionStatus) {
+              if (
+                regionStatus === kakao.maps.services.Status.OK &&
+                region[0]
+              ) {
+                areaInfo.textContent = region[0].address_name;
+                areaInfo.hidden = false;
+              }
+            }
+          );
+        }
+      );
     }
 
     function bindMapTools() {
