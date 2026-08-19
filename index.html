@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>카카오 지도</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="controls">
+      <form class="search-row" id="search-form">
+        <input
+          id="search-input"
+          type="search"
+          placeholder="장소, 주소 검색"
+          autocomplete="off"
+        />
+        <button type="submit" class="btn btn-search">검색</button>
+        <button
+          type="button"
+          class="btn btn-location"
+          id="location-btn"
+          aria-label="현재 위치"
+          title="현재 위치"
+        >
+          <img src="icons/location.svg" alt="" />
+        </button>
+      </form>
+
+      <div class="chips" role="group" aria-label="브랜드 필터">
+        <button type="button" class="chip is-active" data-filter="default">
+          기본
+          <img src="icons/default.svg" alt="" />
+        </button>
+        <button type="button" class="chip" data-filter="스타벅스">
+          스타벅스
+          <img src="icons/starbucks.svg" alt="" />
+        </button>
+        <button type="button" class="chip" data-filter="메가커피">
+          메가커피
+          <img src="icons/mega-coffee.png" alt="" />
+        </button>
+        <button type="button" class="chip" data-filter="GS25">
+          GS25
+          <img src="icons/gs25.svg" alt="" />
+        </button>
+        <button type="button" class="chip" data-filter="CU">
+          CU
+          <img src="icons/cu.svg" alt="" />
+        </button>
+      </div>
+    </div>
+
+    <div class="map-tools">
+      <div class="tool-group">
+        <button type="button" class="tool-btn" id="zoom-in" aria-label="확대">
+          +
+        </button>
+        <button type="button" class="tool-btn" id="zoom-out" aria-label="축소">
+          -
+        </button>
+      </div>
+
+      <div class="tool-group" role="group" aria-label="지도 타입">
+        <button type="button" class="tool-btn map-type is-active" data-type="ROADMAP">
+          지도
+        </button>
+        <button type="button" class="tool-btn map-type" data-type="SKYVIEW">
+          스카이뷰
+        </button>
+        <button type="button" class="tool-btn map-type" data-type="HYBRID">
+          하이브리드
+        </button>
+      </div>
+
+      <div class="tool-group" role="group" aria-label="지도 오버레이">
+        <button type="button" class="tool-btn map-overlay" data-overlay="TRAFFIC">
+          교통정보
+        </button>
+        <button type="button" class="tool-btn map-overlay" data-overlay="ROADVIEW">
+          로드뷰
+        </button>
+        <button type="button" class="tool-btn map-overlay" data-overlay="TERRAIN">
+          지형
+        </button>
+        <button type="button" class="tool-btn map-overlay" data-overlay="BICYCLE">
+          자전거
+        </button>
+        <button
+          type="button"
+          class="tool-btn map-overlay"
+          data-overlay="USE_DISTRICT"
+        >
+          지적편집도
+        </button>
+      </div>
+    </div>
+
+    <div id="map"></div>
+
+    <section class="sheet is-mid" id="place-sheet" hidden>
+      <div class="sheet-grab" id="sheet-grab">
+        <button
+          type="button"
+          class="sheet-handle"
+          id="sheet-toggle"
+          aria-label="바텀시트 크기 조절"
+        ></button>
+        <div class="sheet-header">
+          <div>
+            <h2 id="sheet-title">검색 결과</h2>
+            <p id="sheet-count"></p>
+          </div>
+        </div>
+      </div>
+      <ul class="sheet-list" id="place-list"></ul>
+    </section>
+
+    <div class="dialog-backdrop" id="dialog" hidden>
+      <div
+        class="dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="dialog-title"
+        aria-describedby="dialog-message"
+      >
+        <h2 id="dialog-title">알림</h2>
+        <p id="dialog-message"></p>
+        <button type="button" class="btn btn-search" id="dialog-close">
+          확인
+        </button>
+      </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

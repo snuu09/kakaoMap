@@ -1,0 +1,1 @@
+var KAKAO_JS_KEY = "YOUR_KAKAO_JS_KEY";
