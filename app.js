@@ -60,6 +60,7 @@
     var sheetCount = document.getElementById("sheet-count");
     var placeList = document.getElementById("place-list");
     var areaInfo = document.getElementById("area-info");
+    var areaInfoText = document.getElementById("area-info-text");
     var SHEET_STATES = ["collapsed", "mid", "expanded"];
     var sheetState = "mid";
 
@@ -70,7 +71,13 @@
       }
     });
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && !dialog.hidden) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (closeLayersPanel()) {
+        return;
+      }
+      if (!dialog.hidden) {
         hideDialog();
       }
     });
@@ -196,7 +203,14 @@
 
       if (!searchQuiet) {
         skipIdleOnce = true;
-        map.setBounds(bounds, 120, 110, 280, 24);
+        var padding = mapFitPadding(true);
+        map.setBounds(
+          bounds,
+          padding.top,
+          padding.right,
+          padding.bottom,
+          padding.left
+        );
       }
 
       renderPlaceList(data);
@@ -659,6 +673,9 @@
       sheet.classList.add("is-" + state);
       sheet.style.height = "";
       sheetToggle.setAttribute("aria-label", sheetStateLabel(state));
+      if (state === "expanded") {
+        closeLayersPanel();
+      }
     }
 
     function sheetStateLabel(state) {
@@ -671,10 +688,57 @@
       return "바텀시트 접기";
     }
 
+    function viewportHeight() {
+      if (window.visualViewport && window.visualViewport.height) {
+        return window.visualViewport.height;
+      }
+      return window.innerHeight;
+    }
+
+    function isCompactMap() {
+      return window.matchMedia("(max-width: 767px)").matches;
+    }
+
+    function mapFitPadding(forResults) {
+      var top = isCompactMap() ? 108 : 120;
+      var right = isCompactMap() ? 56 : 110;
+      var left = isCompactMap() ? 16 : 24;
+      var bottom = 24;
+
+      if (forResults || !sheet.hidden) {
+        var sheetHeight = !sheet.hidden
+          ? sheet.getBoundingClientRect().height
+          : 0;
+        if (!sheetHeight) {
+          sheetHeight = sheetSnapHeights().mid;
+        }
+        bottom = Math.round(sheetHeight) + 16;
+      }
+
+      return { top: top, right: right, bottom: bottom, left: left };
+    }
+
+    function closeLayersPanel() {
+      var tools = document.getElementById("map-tools");
+      var toggle = document.getElementById("layers-toggle");
+      if (!tools || !tools.classList.contains("is-layers-open")) {
+        return false;
+      }
+      tools.classList.remove("is-layers-open");
+      if (toggle) {
+        toggle.classList.remove("is-open");
+        toggle.setAttribute("aria-expanded", "false");
+      }
+      return true;
+    }
+
     function sheetSnapHeights() {
       var collapsed = sheetGrab.getBoundingClientRect().height;
-      var mid = Math.min(window.innerHeight * 0.42, 420);
-      var expanded = window.innerHeight - 88;
+      var height = viewportHeight();
+      var mid = isCompactMap()
+        ? Math.min(height * 0.38, 340)
+        : Math.min(height * 0.42, 420);
+      var expanded = height - (isCompactMap() ? 72 : 88);
       return {
         collapsed: collapsed,
         mid: mid,
@@ -833,6 +897,7 @@
           map.setCenter(currentPosition);
           map.setLevel(3);
           showCurrentLocation(currentPosition);
+          locationBtn.classList.add("is-active");
         },
         function (error) {
           var message = "현재 위치를 가져올 수 없습니다.";
@@ -905,7 +970,7 @@
               (result[0].road_address && result[0].road_address.address_name) ||
               (result[0].address && result[0].address.address_name);
             if (name) {
-              areaInfo.textContent = name;
+              areaInfoText.textContent = name;
               areaInfo.hidden = false;
               return;
             }
@@ -919,7 +984,7 @@
                 regionStatus === kakao.maps.services.Status.OK &&
                 region[0]
               ) {
-                areaInfo.textContent = region[0].address_name;
+                areaInfoText.textContent = region[0].address_name;
                 areaInfo.hidden = false;
               }
             }
@@ -928,13 +993,67 @@
       );
     }
 
+    function eventInsideMapTools(event) {
+      var node = event.target;
+      if (node && node.nodeType === 3) {
+        node = node.parentNode;
+      }
+      if (node && typeof node.closest === "function") {
+        return !!node.closest("#map-tools");
+      }
+      var tools = document.getElementById("map-tools");
+      return !!(tools && tools.contains(node));
+    }
+
     function bindMapTools() {
+      var tools = document.getElementById("map-tools");
+      var layersToggle = document.getElementById("layers-toggle");
+      var layersIgnoreUntil = 0;
+
       document.getElementById("zoom-in").addEventListener("click", function () {
         map.setLevel(map.getLevel() - 1);
       });
 
       document.getElementById("zoom-out").addEventListener("click", function () {
         map.setLevel(map.getLevel() + 1);
+      });
+
+      layersToggle.addEventListener(
+        "click",
+        function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          var open = !tools.classList.contains("is-layers-open");
+          tools.classList.toggle("is-layers-open", open);
+          layersToggle.classList.toggle("is-open", open);
+          layersToggle.setAttribute("aria-expanded", open ? "true" : "false");
+          if (open) {
+            layersIgnoreUntil = Date.now() + 400;
+          }
+        }
+      );
+
+      document.addEventListener(
+        "pointerdown",
+        function (event) {
+          if (!tools.classList.contains("is-layers-open")) {
+            return;
+          }
+          if (Date.now() < layersIgnoreUntil) {
+            return;
+          }
+          if (eventInsideMapTools(event)) {
+            return;
+          }
+          closeLayersPanel();
+        },
+        true
+      );
+
+      window.addEventListener("resize", function () {
+        if (!isCompactMap()) {
+          closeLayersPanel();
+        }
       });
 
       document.querySelectorAll(".map-type").forEach(function (button) {

@@ -1,0 +1,30 @@
+---
+description: Apply impeccable, ui-ux-pro-max, and taste-skill to kakaoMap UI work.
+alwaysApply: true
+---
+
+# kakaoMap design skills
+
+Before changing UI (layout, color, type, components, motion), read in this order:
+
+1. [PRODUCT.md](PRODUCT.md) — product truth, constraints, brand assets
+2. [DESIGN.md](DESIGN.md) — visual tokens (normative)
+3. [design-system/MASTER.md](design-system/MASTER.md) — filtered ui-ux-pro-max rules
+4. [design-system/pages/map.md](design-system/pages/map.md) if touching map chrome
+
+## Skill roles
+
+- **impeccable** — Operate mode. Preserve search, filters, clustering, sheet gestures. Refine chrome; do not replace the map world.
+- **ui-ux-pro-max** — Use the filtered MASTER, not the raw orange persist in `design-system/kakaomap/MASTER.md`.
+- **taste-skill** — Anti-slop only (no purple gradients, Inter-default, glass-everything, marketing card grids, GSAP heroes). This is product map UI, not a landing page.
+
+## Invariants
+
+- Static HTML/CSS/JS. Do not add a framework for styling.
+- Keep brand filter icons in `icons/`.
+- Map stays full viewport. Chrome floats on top.
+- Marker/cluster fade is the only motion system.
+- Compact chrome is `max-width: 767px`. Desktop keeps the full labeled tool stack.
+- Location is a bottom-right FAB, never inside the search row.
+- Compact layers menu opens below the toggle, not to the left.
+- Compact search input stays 16px. Leave 8px between search and zoom.

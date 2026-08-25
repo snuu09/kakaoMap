@@ -2,9 +2,12 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>카카오 지도</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=7" />
   </head>
   <body>
     <div class="controls">
@@ -15,15 +18,24 @@
           placeholder="장소, 주소 검색"
           autocomplete="off"
         />
-        <button type="submit" class="btn btn-search">검색</button>
-        <button
-          type="button"
-          class="btn btn-location"
-          id="location-btn"
-          aria-label="현재 위치"
-          title="현재 위치"
-        >
-          <img src="icons/location.svg" alt="" />
+        <button type="submit" class="btn btn-search" aria-label="검색">
+          <svg
+            class="btn-search-icon"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+            <path
+              d="M16.5 16.5L21 21"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="btn-search-label">검색</span>
         </button>
       </form>
 
@@ -50,11 +62,41 @@
         </button>
       </div>
 
-      <div class="area-info" id="area-info" hidden></div>
+      <div class="area-info" id="area-info" hidden>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 21s7-6.2 7-11.2A7 7 0 0 0 5 9.8C5 14.8 12 21 12 21z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linejoin="round"
+          />
+          <circle cx="12" cy="9.8" r="2.2" fill="currentColor" />
+        </svg>
+        <span id="area-info-text"></span>
+      </div>
     </div>
 
-    <div class="map-tools">
-      <div class="tool-group">
+    <button
+      type="button"
+      class="btn-location"
+      id="location-btn"
+      aria-label="현재 위치로 이동"
+      title="현재 위치"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" fill="currentColor" />
+        <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.8" />
+        <path
+          d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        />
+      </svg>
+    </button>
+
+    <div class="map-tools" id="map-tools">
+      <div class="tool-group tool-group-zoom">
         <button type="button" class="tool-btn" id="zoom-in" aria-label="확대">
           +
         </button>
@@ -63,38 +105,75 @@
         </button>
       </div>
 
-      <div class="tool-group" role="group" aria-label="지도 타입">
-        <button type="button" class="tool-btn map-type is-active" data-type="ROADMAP">
-          지도
-        </button>
-        <button type="button" class="tool-btn map-type" data-type="SKYVIEW">
-          스카이뷰
-        </button>
-        <button type="button" class="tool-btn map-type" data-type="HYBRID">
-          하이브리드
-        </button>
-      </div>
+      <div class="layers-stack">
+      <button
+        type="button"
+        class="tool-btn layers-toggle"
+        id="layers-toggle"
+        aria-expanded="false"
+        aria-controls="map-layers"
+        aria-label="지도 레이어"
+        title="지도 레이어"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 4l9 5-9 5-9-5 9-5z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M5 14.5L12 18.5 19 14.5"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M5 18L12 22l7-4"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
 
-      <div class="tool-group" role="group" aria-label="지도 오버레이">
-        <button type="button" class="tool-btn map-overlay" data-overlay="TRAFFIC">
-          교통정보
-        </button>
-        <button type="button" class="tool-btn map-overlay" data-overlay="ROADVIEW">
-          로드뷰
-        </button>
-        <button type="button" class="tool-btn map-overlay" data-overlay="TERRAIN">
-          지형
-        </button>
-        <button type="button" class="tool-btn map-overlay" data-overlay="BICYCLE">
-          자전거
-        </button>
-        <button
-          type="button"
-          class="tool-btn map-overlay"
-          data-overlay="USE_DISTRICT"
-        >
-          지적편집도
-        </button>
+      <div class="map-layers" id="map-layers">
+        <div class="tool-group" role="group" aria-label="지도 타입">
+          <button type="button" class="tool-btn map-type is-active" data-type="ROADMAP">
+            지도
+          </button>
+          <button type="button" class="tool-btn map-type" data-type="SKYVIEW">
+            스카이뷰
+          </button>
+          <button type="button" class="tool-btn map-type" data-type="HYBRID">
+            하이브리드
+          </button>
+        </div>
+
+        <div class="tool-group" role="group" aria-label="지도 오버레이">
+          <button type="button" class="tool-btn map-overlay" data-overlay="TRAFFIC">
+            교통정보
+          </button>
+          <button type="button" class="tool-btn map-overlay" data-overlay="ROADVIEW">
+            로드뷰
+          </button>
+          <button type="button" class="tool-btn map-overlay" data-overlay="TERRAIN">
+            지형
+          </button>
+          <button type="button" class="tool-btn map-overlay" data-overlay="BICYCLE">
+            자전거
+          </button>
+          <button
+            type="button"
+            class="tool-btn map-overlay"
+            data-overlay="USE_DISTRICT"
+          >
+            지적편집도
+          </button>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -135,6 +214,6 @@
     </div>
 
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=5"></script>
   </body>
 </html>
