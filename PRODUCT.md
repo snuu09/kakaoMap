@@ -14,15 +14,15 @@ web
 
 _Inferred from the product and confirmed by the redesign brief: keep Kakao-map chrome, preserve search/filter/cluster/sheet._
 
-한국에서 주변 장소를 찾는 일반 사용자. 이동 중이거나 지도를 보며 스타벅스, 메가커피, GS25, CU 같은 브랜드를 걸러 보거나, 주소·상호로 검색한다.
+한국에서 주변 장소를 찾는 일반 사용자. 이동 중이거나 지도를 보며 역사 명소·일반 관광지, 스타벅스·메가커피·GS25·CU 같은 브랜드를 걸러 보거나, 주소·상호로 검색한다.
 
 ## Product Purpose
 
-전체 화면 카카오 지도 위에서 장소를 찾고, 브랜드 필터로 현재 화면의 매장을 모아 보며, 목록과 핀을 오가며 고른다. 성공은 원하는 지점을 지도와 목록에서 빠르게 확인하는 것이다.
+전체 화면 카카오 지도 위에서 장소를 찾고, 역사 명소·관광·브랜드 필터로 현재 화면의 지점을 모아 보며, 목록과 핀·상세를 오가며 고른다. 성공은 원하는 지점을 지도와 목록에서 빠르게 확인하는 것이다.
 
 ## Positioning
 
-카카오 장소 검색에 브랜드 칩 필터, 줌 기반 클러스터, 제스처 바텀시트를 붙인 정적 지도 페이지. 공식 카카오맵 앱이 아니며, 키는 로컬 `config.js`로만 넣는다.
+카카오 장소 검색에 브랜드 칩, 역사 명소·관광 스냅샷, 줌 기반 클러스터, 제스처 바텀시트·상세 시트를 붙인 정적 지도 페이지. 공식 카카오맵 앱이 아니며, 키는 로컬 `config.js`로만 넣는다.
 
 ## Operating Context
 
@@ -30,22 +30,26 @@ _Inferred from the product and confirmed by the redesign brief: keep Kakao-map c
 
 ## Capabilities and Constraints
 
-- 키워드 검색은 전국 장소 검색이다. 필터 칩은 현재 지도 중심 또는 화면 범위로 재검색한다.
-- 필터일 때만 줌 레벨에 따라 가까운 핀을 클러스터한다. 일반 검색 결과는 개별 핀이다.
+- 키워드 검색은 전국 장소 검색이다. 브랜드 필터 칩은 현재 지도 중심 또는 화면 범위로 카카오 `keywordSearch`를 다시 한다.
+- **명소**는 역사·유적·국가유산·유네스코 세계유산이다. **관광**은 그 밖의 관광지다. 둘 다 카카오 검색 한도를 쓰지 않고 `data/attractions.json`을 한 번 불러 `kind`로 가른다. 기본은 전국, **내 근처**는 명소 또는 관광이 켜져 있을 때만 Geolocation 반경 3km. idle에서 카카오 재검색 없이 bbox 클러스터한다.
+- 스냅샷은 `scripts/fetch-attractions.mjs`다. `TOUR_API_KEY`가 있으면 TourAPI `contentTypeId=12`를 받아 `cat2=A0201`·유네스코·유산 플래그는 명소, 나머지는 관광. `firstimage`·`cat3`를 JSON에 굽는다. 키가 없으면 유네스코·궁궐·관광 시드와 Overpass/Wikidata·위키백과 대표 사진이다. 키는 브라우저와 Git에 두지 않는다.
+- 명소 핀은 공식 태극기(`icons/taegeukgi.svg`, 위키미디어 Flag of South Korea), 관광 핀은 `cat2` 유형 아이콘이다. 메인 칩은 로고 다음 라벨이다. **내 근처**는 아이콘이 없다. 관광이 켜지면 그 아래 **그룹** 줄만 열린다. **전체**가 기본이며 세부는 숨긴다. 산·바다·호수·강·휴양·체험·산업·건축을 고르면 그 아래 **세부** 줄(그 그룹의 cat3와 그룹 안 전체)이 열린다. 목록·상세는 대표 사진(`image`)을 쓰고 없으면 Carto 타일이다. 명소·관광 상세는 제목 아래에 장소 날씨(Open-Meteo)를 둔다. 현위치가 있고 장소가 3km 안이면 생략한다. 브랜드 검색은 상세 시트와 대표 사진을 쓰지 않는다.
+- 필터일 때만 줌 레벨에 따라 가까운 핀을 클러스터한다. 일반 검색 결과는 개별 핀이다. 명소는 화면 안만 오버레이하고 대략 90개 이하로 유지한다.
 - 바텀시트는 접힘 / 중간 / 최대이며 핸들 탭과 드래그로 스냅한다. 컴팩트 중간 높이는 `min(38dvh, 340px)`이다.
 - 현재 위치는 Geolocation이다. 검색바가 아니라 지도 우측 하단 버튼이다. 권한 거부 시 커스텀 다이얼로그로 알린다.
 - 컴팩트(`max-width: 767px`)에서는 줌만 상시 두고 지도 타입·오버레이는 레이어 패널에 접는다.
-- 장소 사진은 카카오 API/약관상 쓰지 않는다. 목록 썸네일은 Carto Voyager 타일이다.
+- 장소 사진은 카카오 API/약관상 쓰지 않는다. 명소·관광 대표 사진은 TourAPI `firstimage` 또는 위키미디어/위키백과이며, 없으면 Carto Voyager 타일이다.
 - `config.js`는 Git에 올리지 않는다. 추적되는 예시는 `config.example.js`다.
 
 ## Brand Commitments
 
-화면 이름은 「카카오 지도」. 카카오맵식 플로팅 크롬(흰 검색바, 칩, 우측 도구, 우측 하단 현위치, 하단 시트)을 유지한다. 스타벅스·메가커피·GS25·CU·기본 필터 아이콘은 제품 자산이며 교체하지 않는다. 공식 카카오 브랜드 가이드를 사칭하지 않는다.
+화면 이름은 「카카오 지도」. 카카오맵식 플로팅 크롬(흰 검색바, 칩, 우측 도구, 우측 하단 현위치, 하단 시트)을 유지한다. 스타벅스·메가커피·GS25·CU·기본 필터 아이콘은 제품 자산이며 교체하지 않는다. 명소 칩·역사 핀은 `icons/taegeukgi.svg`, 관광 칩은 `icons/attraction.svg`다. 공식 카카오 브랜드 가이드를 사칭하지 않는다.
 
 ## Evidence on Hand
 
 - 구현: `index.html`, `style.css`, `app.js`
-- 아이콘: `icons/` (default, starbucks, gs25, cu, location; 메가커피는 PNG)
+- 아이콘: `icons/` (default, taegeukgi, attraction, tourism-*, starbucks, gs25, cu, location; 메가커피는 PNG)
+- 명소/관광 스냅샷: `data/attractions.json`, 생성 스크립트 `scripts/fetch-attractions.mjs`
 - 사용 설명: `README.md`
 - 허구 후기, 벤치마크, 장소 실사 사진은 없다. 만들지 않는다.
 

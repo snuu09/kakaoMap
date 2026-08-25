@@ -68,7 +68,7 @@
 
 ## Component Specs
 
-Search is the CTA. Primary button is ink, not blue. Location is a bottom-right FAB (white chrome, accent crosshair), never inside the search row. Address chip is left-aligned under filters.
+Search is the CTA. Primary button is ink, not blue. Location is a bottom-right FAB (white chrome, accent crosshair), never inside the search row. Address chip is left-aligned under filters. Chip order: 기본, 명소 (`icons/taegeukgi.svg` official flag), 관광 (`icons/attraction.svg`), then brands. Main chips are icon then label (`padding: 0 14px 0 10px`). **내 근처** is an icon-less `aria-pressed` option while 명소 or 관광 is on (`accent-soft` when pressed). Tourism shows `#tourism-groups` first; `#tourism-cat3-row` (label like 산의 세부) appears only after a group is chosen. History pins use the official flag; other tourism pins use category icons. Catalog thumbs use `image` then Carto. Detail sheet is the same chrome with a back control and Open-Meteo weather under the title when GPS is missing or the place is farther than 3km.
 
 Compact: 16px search input, 8px gap between search and zoom, layers panel opens **below** the toggle. Hover only under `@media (hover: hover)`.
 

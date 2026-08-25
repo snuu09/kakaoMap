@@ -7,7 +7,7 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <title>카카오 지도</title>
-    <link rel="stylesheet" href="style.css?v=7" />
+    <link rel="stylesheet" href="style.css?v=13" />
   </head>
   <body>
     <div class="controls">
@@ -39,27 +39,77 @@
         </button>
       </form>
 
-      <div class="chips" role="group" aria-label="브랜드 필터">
+      <div class="chips" role="group" aria-label="장소 필터">
         <button type="button" class="chip is-active" data-filter="default">
-          기본
           <img src="icons/default.svg" alt="" />
+          기본
+        </button>
+        <button type="button" class="chip" data-filter="attractions" id="attractions-chip">
+          <img class="chip-flag" src="icons/taegeukgi.svg" alt="" />
+          명소
+        </button>
+        <button type="button" class="chip" data-filter="tourism" id="tourism-chip">
+          <img src="icons/attraction.svg" alt="" />
+          관광
         </button>
         <button type="button" class="chip" data-filter="스타벅스">
-          스타벅스
           <img src="icons/starbucks.svg" alt="" />
+          스타벅스
         </button>
         <button type="button" class="chip" data-filter="메가커피">
-          메가커피
           <img src="icons/mega-coffee.png" alt="" />
+          메가커피
         </button>
         <button type="button" class="chip" data-filter="GS25">
-          GS25
           <img src="icons/gs25.svg" alt="" />
+          GS25
         </button>
         <button type="button" class="chip" data-filter="CU">
-          CU
           <img src="icons/cu.svg" alt="" />
+          CU
         </button>
+        <button
+          type="button"
+          class="chip chip-option"
+          id="nearby-attractions"
+          hidden
+          aria-pressed="false"
+          aria-label="내 근처만 보기"
+        >
+          내 근처
+        </button>
+      </div>
+
+      <div class="chips chips-sub" id="tourism-groups" hidden role="group" aria-label="관광 유형">
+        <button type="button" class="chip chip-option" data-tourism-group="" aria-pressed="true">
+          전체
+        </button>
+        <button type="button" class="chip chip-option" data-tourism-group="mountain" hidden>
+          산
+        </button>
+        <button type="button" class="chip chip-option" data-tourism-group="sea" hidden>
+          바다
+        </button>
+        <button type="button" class="chip chip-option" data-tourism-group="water" hidden>
+          호수·강
+        </button>
+        <button type="button" class="chip chip-option" data-tourism-group="leisure" hidden>
+          휴양
+        </button>
+        <button type="button" class="chip chip-option" data-tourism-group="experience" hidden>
+          체험
+        </button>
+        <button type="button" class="chip chip-option" data-tourism-group="industry" hidden>
+          산업
+        </button>
+        <button type="button" class="chip chip-option" data-tourism-group="architecture" hidden>
+          건축
+        </button>
+      </div>
+
+      <div class="chips-sub-row" id="tourism-cat3-row" hidden>
+        <span class="chips-sub-label" id="tourism-cat3-label">세부</span>
+        <div class="chips chips-sub" id="tourism-cat3" role="group" aria-label="관광 세부 유형"></div>
       </div>
 
       <div class="area-info" id="area-info" hidden>
@@ -197,6 +247,28 @@
       <ul class="sheet-list" id="place-list"></ul>
     </section>
 
+    <section class="sheet is-mid" id="place-detail" hidden>
+      <div class="sheet-grab" id="detail-grab">
+        <button
+          type="button"
+          class="sheet-handle"
+          id="detail-toggle"
+          aria-label="바텀시트 크기 조절"
+        ></button>
+        <div class="sheet-header sheet-header-detail">
+          <button type="button" class="sheet-back" id="detail-back">
+            뒤로
+          </button>
+          <div>
+            <h2 id="detail-title">장소</h2>
+            <p id="detail-meta"></p>
+            <p id="detail-weather" class="detail-weather" hidden></p>
+          </div>
+        </div>
+      </div>
+      <div class="sheet-detail-body" id="detail-body"></div>
+    </section>
+
     <div class="dialog-backdrop" id="dialog" hidden>
       <div
         class="dialog"
@@ -214,6 +286,6 @@
     </div>
 
     <script src="config.js"></script>
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=13"></script>
   </body>
 </html>
