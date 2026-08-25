@@ -1,7 +1,16 @@
 (function () {
+  function t(key, vars) {
+    return window.MapI18n.t(key, vars);
+  }
+
+  function i18nHas(key) {
+    return window.MapI18n.has(key);
+  }
+
   var DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };
   var SEARCH_RADIUS = 3000;
   var CLUSTER_MIN_LEVEL = 6;
+  var DETAIL_MAP_LEVEL = 3;
   var ATTRACTION_MAX_OVERLAYS = 90;
   var HISTORY_ICON = { src: "icons/taegeukgi.svg", wide: true };
   var TOURISM_ICONS = {
@@ -13,67 +22,7 @@
     A0205: { src: "icons/tourism-default.svg", wide: false },
   };
   var TOURISM_ICON_DEFAULT = { src: "icons/tourism-default.svg", wide: false };
-  var CAT2_LABEL = {
-    A0101: "자연",
-    A0102: "자연",
-    A0201: "역사",
-    A0202: "휴양",
-    A0203: "체험",
-    A0204: "산업",
-    A0205: "건축",
-  };
-  var CAT3_LABEL = {
-    A01010100: "국립공원",
-    A01010200: "도립공원",
-    A01010300: "군립공원",
-    A01010400: "산",
-    A01010500: "생태관광",
-    A01010600: "휴양림",
-    A01010700: "수목원",
-    A01010800: "폭포",
-    A01010900: "계곡",
-    A01011000: "약수터",
-    A01011100: "해수욕장",
-    A01011200: "섬",
-    A01011300: "항구",
-    A01011400: "어촌",
-    A01011600: "등대",
-    A01011700: "호수",
-    A01011800: "강",
-    A01011900: "동굴",
-    A02010100: "고궁",
-    A02020200: "관광단지",
-    A02020300: "온천",
-    A02020600: "테마공원",
-    A02020700: "공원",
-    A02020800: "유람선",
-    A02030100: "농산어촌",
-    A02030200: "전통체험",
-    A02030400: "이색체험",
-    A02030600: "이색거리",
-    A02040400: "발전소",
-    A02040600: "식음료",
-    A02040800: "산업시설",
-    A02041000: "자동차",
-    A02050200: "다리",
-    A02050300: "전망대",
-    A02050500: "동상",
-    A02050700: "유명건물",
-  };
-  var BADGE_LABEL = {
-    unesco: "유네스코",
-    heritage: "국가유산",
-    historic: "유적",
-  };
-  var TOURISM_GROUP_LABEL = {
-    mountain: "산",
-    sea: "바다",
-    water: "호수·강",
-    leisure: "휴양",
-    experience: "체험",
-    industry: "산업",
-    architecture: "건축",
-  };
+  var BADGE_KEYS = { unesco: 1, heritage: 1, historic: 1 };
   var KOREA_BOUNDS = {
     sw: { lat: 33.1, lng: 124.6 },
     ne: { lat: 38.7, lng: 131.9 },
@@ -138,6 +87,9 @@
     var tourismCat3El = document.getElementById("tourism-cat3");
     var weatherCache = {};
     var weatherSeq = 0;
+    var detailPlace = null;
+    var detailGeocodedAddress = "";
+    var detailCamera = null;
     var dialog = document.getElementById("dialog");
     var dialogTitle = document.getElementById("dialog-title");
     var dialogMessage = document.getElementById("dialog-message");
@@ -154,7 +106,6 @@
     var detailBack = document.getElementById("detail-back");
     var detailTitle = document.getElementById("detail-title");
     var detailMeta = document.getElementById("detail-meta");
-    var detailWeather = document.getElementById("detail-weather");
     var detailBody = document.getElementById("detail-body");
     var areaInfo = document.getElementById("area-info");
     var areaInfoText = document.getElementById("area-info-text");
@@ -169,6 +120,9 @@
     });
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") {
+        return;
+      }
+      if (closeLangPanel()) {
         return;
       }
       if (closeLayersPanel()) {
@@ -270,6 +224,7 @@
     bindMapTools();
     bindMapIdle();
     updateAreaInfo();
+    applyI18n();
 
     function searchPlaces(keyword, nearby, quiet) {
       activeSearchKeyword = keyword;
@@ -367,12 +322,14 @@
         }
       });
       var cat3Keys = Object.keys(cat3Counts).sort(function (a, b) {
-        return (CAT3_LABEL[a] || a).localeCompare(CAT3_LABEL[b] || b, "ko");
+        return cat3Label(a).localeCompare(cat3Label(b), MapI18n.locale());
       });
       var html =
         '<button type="button" class="chip chip-option" data-tourism-cat3="" aria-pressed="' +
         (tourismCat3 ? "false" : "true") +
-        '">전체</button>';
+        '">' +
+        escapeHtml(t("group.all")) +
+        "</button>";
       cat3Keys.forEach(function (key) {
         html +=
           '<button type="button" class="chip chip-option" data-tourism-cat3="' +
@@ -380,21 +337,50 @@
           '" aria-pressed="' +
           (tourismCat3 === key ? "true" : "false") +
           '">' +
-          escapeHtml(CAT3_LABEL[key] || key) +
+          escapeHtml(cat3Label(key)) +
           "</button>";
       });
       tourismCat3El.innerHTML = html;
       if (tourismCat3Label) {
-        tourismCat3Label.textContent =
-          (TOURISM_GROUP_LABEL[tourismGroup] || "그룹") + "의 세부";
+        tourismCat3Label.textContent = t("groupDetails", {
+          group: groupLabel(tourismGroup) || t("extra.topic"),
+        });
       }
       if (tourismCat3Row) {
         tourismCat3Row.hidden = false;
       }
     }
 
+    function cat2Label(key) {
+      return t("cat2." + key);
+    }
+
+    function cat3Label(key) {
+      return i18nHas("cat3." + key) ? t("cat3." + key) : key;
+    }
+
+    function groupLabel(key) {
+      return key && i18nHas("group." + key) ? t("group." + key) : key || "";
+    }
+
     function catalogLabel(kind) {
-      return kind === "tourism" ? "관광" : "명소";
+      return kind === "tourism" ? t("chip.tourism") : t("chip.attractions");
+    }
+
+    function categoryLabel(place) {
+      if (place && (place.kind === "history" || place.kind === "tourism")) {
+        if (place.cat3 && i18nHas("cat3." + place.cat3)) {
+          return cat3Label(place.cat3);
+        }
+        if (place.cat2 && i18nHas("cat2." + place.cat2)) {
+          return cat2Label(place.cat2);
+        }
+        return t(
+          place.kind === "history" ? "kind.historySite" : "kind.tourismSite"
+        );
+      }
+      var raw = (place && place.category_name) || "";
+      return raw.split(">").pop().trim();
     }
 
     function iconForPlace(place) {
@@ -409,17 +395,12 @@
       var kind = row.kind === "history" ? "history" : "tourism";
       var cat2 = row.cat2 || (kind === "history" ? "A0201" : "");
       var cat3 = row.cat3 || "";
-      var category =
-        CAT3_LABEL[cat3] ||
-        CAT2_LABEL[cat2] ||
-        (kind === "history" ? "역사" : "관광지");
       return {
         id: row.id,
         place_name: row.title,
         x: row.x,
         y: row.y,
         address_name: row.address || "",
-        category_name: category,
         kind: kind,
         cat2: cat2,
         cat3: cat3,
@@ -439,7 +420,7 @@
       if (attractionsPromise) {
         return attractionsPromise;
       }
-      attractionsPromise = fetch("data/attractions.json?v=13")
+      attractionsPromise = fetch("data/attractions.json?v=15")
         .then(function (res) {
           if (!res.ok) {
             throw new Error("attractions " + res.status);
@@ -568,8 +549,8 @@
             return;
           }
           showDialog(
-            label + " 데이터 오류",
-            label + " 데이터를 불러오지 못했습니다."
+            t("dataErrorTitle", { label: label }),
+            t("dataError", { label: label })
           );
         });
     }
@@ -582,10 +563,7 @@
       if (!navigator.geolocation) {
         nearbyAttractionsBtn.setAttribute("aria-pressed", "false");
         attractionMode = "nationwide";
-        showDialog(
-          "현재 위치 불가",
-          "이 브라우저에서는 현재 위치를 사용할 수 없습니다."
-        );
+        showDialog(t("geoUnavailableTitle"), t("geoUnavailable"));
         renderAttractionMode(true);
         return;
       }
@@ -609,12 +587,11 @@
           }
           nearbyAttractionsBtn.setAttribute("aria-pressed", "false");
           attractionMode = "nationwide";
-          var message = "현재 위치를 가져올 수 없습니다.";
+          var message = t("geoError");
           if (error && error.code === error.PERMISSION_DENIED) {
-            message =
-              "위치 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.";
+            message = t("geoDenied");
           }
-          showDialog("현재 위치 오류", message);
+          showDialog(t("geoErrorTitle"), message);
           renderAttractionMode(true);
         }
       );
@@ -630,10 +607,7 @@
           clearSearchMarkers();
           renderAttractionList([], 0, 0);
           if (attractionMode === "nearby") {
-            showDialog(
-              "검색 결과 없음",
-              "현재 위치 근처에 해당하는 장소가 없습니다."
-            );
+            showDialog(t("noResultsTitle"), t("noNearby"));
           }
           return;
         }
@@ -780,15 +754,17 @@
     function renderAttractionList(visiblePlaces, inViewCount, totalCount) {
       var label = catalogLabel(catalogKind);
       var title =
-        attractionMode === "nearby" ? "내 근처 " + label : label;
+        attractionMode === "nearby"
+          ? t("nearbyTitle", { label: label })
+          : label;
       var countLabel =
         attractionMode === "nearby"
-          ? "근처 " + totalCount + "곳"
-          : "화면 " + inViewCount + "곳 · 전체 " + totalCount + "곳";
+          ? t("countNearby", { n: totalCount })
+          : t("countView", { in: inViewCount, total: totalCount });
       renderPlaceList(visiblePlaces, title, countLabel);
       if (!visiblePlaces.length && inViewCount > 0) {
         placeList.innerHTML =
-          '<li class="place-empty">지도를 확대해 개별 장소를 보세요.</li>';
+          '<li class="place-empty">' + escapeHtml(t("emptyZoom")) + "</li>";
       }
     }
 
@@ -807,13 +783,13 @@
           showSheet();
           return;
         }
-        showDialog("검색 결과 없음", "검색 결과가 없습니다.");
+        showDialog(t("noResultsTitle"), t("noSearch"));
         return;
       }
 
       if (status !== kakao.maps.services.Status.OK) {
         if (!searchQuiet) {
-          showDialog("검색 오류", "검색 중 오류가 발생했습니다.");
+          showDialog(t("searchErrorTitle"), t("searchError"));
         }
         return;
       }
@@ -1078,7 +1054,7 @@
       el.type = "button";
       el.className = "map-cluster " + clusterSizeClass(next.count);
       el.textContent = String(next.count);
-      el.setAttribute("aria-label", next.count + "개 장소 묶음, 확대");
+      el.setAttribute("aria-label", t("clusterZoom", { n: next.count }));
       el.addEventListener("click", function (event) {
         event.stopPropagation();
         zoomIntoCluster(cluster.center);
@@ -1173,7 +1149,7 @@
         cluster.el.textContent = String(next.count);
         cluster.el.setAttribute(
           "aria-label",
-          next.count + "개 장소 묶음, 확대"
+          t("clusterZoom", { n: next.count })
         );
         cluster.overlay.setPosition(next.center);
         cluster.center = next.center;
@@ -1189,13 +1165,14 @@
     }
 
     function renderPlaceList(data, title, countLabel) {
-      sheetTitle.textContent = title || activeSearchKeyword + " 검색 결과";
-      sheetCount.textContent = countLabel || data.length + "곳";
+      sheetTitle.textContent =
+        title || t("searchResults", { q: activeSearchKeyword });
+      sheetCount.textContent = countLabel || t("placeCount", { n: data.length });
       placeList.innerHTML = "";
 
       if (!data.length) {
         placeList.innerHTML =
-          '<li class="place-empty">이 화면에서 결과를 찾지 못했습니다.</li>';
+          '<li class="place-empty">' + escapeHtml(t("emptyInView")) + "</li>";
         return;
       }
 
@@ -1203,7 +1180,7 @@
         var item = document.createElement("li");
         var button = document.createElement("button");
         var address = place.road_address_name || place.address_name || "";
-        var category = (place.category_name || "").split(">").pop().trim();
+        var category = categoryLabel(place);
         var meta = [category, address].filter(Boolean).join(" · ");
         var lat = parseFloat(place.y);
         var lng = parseFloat(place.x);
@@ -1314,7 +1291,19 @@
       var selectedItem = placeItems[index];
       openPin = selectedItem.pinEl;
 
-      if (fromList) {
+      if (fromList && catalogKind && selectedItem && selectedItem.place) {
+        if (!detailCamera) {
+          var previous = map.getCenter();
+          detailCamera = {
+            lat: previous.getLat(),
+            lng: previous.getLng(),
+            level: map.getLevel(),
+          };
+        }
+        skipIdleOnce = true;
+        map.setCenter(selectedItem.position);
+        map.setLevel(DETAIL_MAP_LEVEL);
+      } else if (fromList) {
         skipIdleOnce = true;
         if (lastSearchNearby && map.getLevel() >= CLUSTER_MIN_LEVEL) {
           map.setLevel(CLUSTER_MIN_LEVEL - 1);
@@ -1343,7 +1332,7 @@
       var seen = {};
       var html = '<span class="place-badges">';
       badges.forEach(function (key) {
-        if (seen[key] || !BADGE_LABEL[key]) {
+        if (seen[key] || !BADGE_KEYS[key]) {
           return;
         }
         seen[key] = true;
@@ -1351,7 +1340,7 @@
           '<span class="place-badge' +
           (key === "unesco" ? " is-unesco" : "") +
           '">' +
-          BADGE_LABEL[key] +
+          escapeHtml(t("badge." + key)) +
           "</span>";
       });
       html += "</span>";
@@ -1361,42 +1350,91 @@
     function wmoWeatherLabel(code) {
       var n = Number(code);
       if (n === 0 || n === 1) {
-        return "맑음";
+        return t("wmo.clear");
       }
       if (n === 2) {
-        return "구름";
+        return t("wmo.cloudy");
       }
       if (n === 3) {
-        return "흐림";
+        return t("wmo.overcast");
       }
       if (n === 45 || n === 48) {
-        return "안개";
+        return t("wmo.fog");
       }
       if (n >= 51 && n <= 57) {
-        return "이슬비";
+        return t("wmo.drizzle");
       }
       if (n >= 61 && n <= 67) {
-        return "비";
+        return t("wmo.rain");
       }
       if ((n >= 71 && n <= 77) || n === 85 || n === 86) {
-        return "눈";
+        return t("wmo.snow");
       }
       if (n >= 80 && n <= 82) {
-        return "소나기";
+        return t("wmo.shower");
       }
       if (n >= 95) {
-        return "뇌우";
+        return t("wmo.thunder");
       }
-      return "구름";
+      return t("wmo.cloudy");
+    }
+
+    function wmoWeatherIcon(code) {
+      var n = Number(code);
+      if (n === 0 || n === 1) {
+        return "icons/weather-clear.svg";
+      }
+      if (n === 2) {
+        return "icons/weather-cloudy.svg";
+      }
+      if (n === 3) {
+        return "icons/weather-overcast.svg";
+      }
+      if (n === 45 || n === 48) {
+        return "icons/weather-fog.svg";
+      }
+      if ((n >= 71 && n <= 77) || n === 85 || n === 86) {
+        return "icons/weather-snow.svg";
+      }
+      if (n >= 95) {
+        return "icons/weather-thunder.svg";
+      }
+      if (
+        (n >= 51 && n <= 57) ||
+        (n >= 61 && n <= 67) ||
+        (n >= 80 && n <= 82)
+      ) {
+        return "icons/weather-rain.svg";
+      }
+      return "icons/weather-cloudy.svg";
+    }
+
+    function detailForecastEl() {
+      return detailBody ? detailBody.querySelector(".detail-forecast") : null;
+    }
+
+    function detailAddressEl() {
+      return detailBody ? detailBody.querySelector(".detail-address") : null;
+    }
+
+    function detailExtraEl() {
+      return detailBody ? detailBody.querySelector(".detail-extra") : null;
+    }
+
+    function isForecastPayload(payload) {
+      return !!(payload && payload.days && payload.days.length === 3);
     }
 
     function clearDetailWeather() {
       weatherSeq += 1;
-      if (!detailWeather) {
+      var el = detailForecastEl();
+      if (!el) {
         return;
       }
-      detailWeather.hidden = true;
-      detailWeather.textContent = "";
+      el.hidden = true;
+      el.innerHTML = "";
+      el.classList.remove("is-pending");
+      el.removeAttribute("aria-busy");
     }
 
     function shouldShowPlaceWeather(lat, lng) {
@@ -1416,21 +1454,104 @@
       );
     }
 
-    function loadPlaceWeather(lat, lng) {
-      clearDetailWeather();
+    function forecastPendingMarkup() {
+      return (
+        '<div class="detail-forecast-day"></div>' +
+        '<div class="detail-forecast-day"></div>' +
+        '<div class="detail-forecast-day"></div>'
+      );
+    }
+
+    function detailForecastMarkup(payload) {
+      var keys = ["yesterday", "today", "tomorrow"];
+      return payload.days
+        .map(function (day, index) {
+          var label = wmoWeatherLabel(day.code);
+          var now =
+            index === 1 && payload.currentTemp != null
+              ? '<span class="detail-forecast-now">' +
+                escapeHtml(t("forecast.now", { n: payload.currentTemp })) +
+                "</span>"
+              : "";
+          return (
+            '<div class="detail-forecast-day">' +
+            '<span class="detail-forecast-label">' +
+            escapeHtml(t("forecast." + keys[index])) +
+            "</span>" +
+            '<img src="' +
+            wmoWeatherIcon(day.code) +
+            '" alt="' +
+            escapeHtml(label) +
+            '" width="20" height="20">' +
+            '<span class="detail-forecast-temps">' +
+            escapeHtml(day.max + "° / " + day.min + "°") +
+            "</span>" +
+            now +
+            "</div>"
+          );
+        })
+        .join("");
+    }
+
+    function renderDetailForecast(payload) {
+      var el = detailForecastEl();
+      if (!el) {
+        return;
+      }
+      if (!isForecastPayload(payload)) {
+        el.hidden = true;
+        el.innerHTML = "";
+        el.classList.remove("is-pending");
+        el.removeAttribute("aria-busy");
+        return;
+      }
+      el.innerHTML = detailForecastMarkup(payload);
+      el.classList.remove("is-pending");
+      el.removeAttribute("aria-busy");
+      el.removeAttribute("aria-label");
+      el.hidden = false;
+    }
+
+    function parseDailyForecast(data) {
+      var daily = data && data.daily;
+      var codes = daily && daily.weather_code;
+      var maxes = daily && daily.temperature_2m_max;
+      var mins = daily && daily.temperature_2m_min;
+      if (!codes || codes.length < 3 || !maxes || !mins) {
+        return null;
+      }
+      var current = data.current || {};
+      var days = [];
+      var i;
+      for (i = 0; i < 3; i += 1) {
+        days.push({
+          code: codes[i],
+          max: Math.round(Number(maxes[i])),
+          min: Math.round(Number(mins[i])),
+        });
+      }
+      return {
+        currentTemp:
+          current.temperature_2m == null
+            ? null
+            : Math.round(Number(current.temperature_2m)),
+        currentCode: current.weather_code,
+        days: days,
+      };
+    }
+
+    function loadPlaceWeather(lat, lng, seq) {
       if (!shouldShowPlaceWeather(lat, lng)) {
         return;
       }
-      var seq = weatherSeq;
       var key = lat.toFixed(2) + "," + lng.toFixed(2);
-      function show(text) {
-        if (seq !== weatherSeq || !detailWeather || !text) {
+      function show(payload) {
+        if (seq !== weatherSeq) {
           return;
         }
-        detailWeather.textContent = text;
-        detailWeather.hidden = false;
+        renderDetailForecast(payload);
       }
-      if (weatherCache[key]) {
+      if (isForecastPayload(weatherCache[key])) {
         show(weatherCache[key]);
         return;
       }
@@ -1439,7 +1560,9 @@
           encodeURIComponent(String(lat)) +
           "&longitude=" +
           encodeURIComponent(String(lng)) +
-          "&current=temperature_2m,weather_code&timezone=Asia/Seoul"
+          "&current=temperature_2m,weather_code" +
+          "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+          "&past_days=1&forecast_days=2&timezone=Asia/Seoul"
       )
         .then(function (res) {
           if (!res.ok) {
@@ -1448,69 +1571,211 @@
           return res.json();
         })
         .then(function (data) {
-          var current = data && data.current;
-          if (!current || current.temperature_2m == null) {
-            return;
+          var payload = parseDailyForecast(data);
+          if (!payload) {
+            throw new Error("weather empty");
           }
-          var text =
-            Math.round(Number(current.temperature_2m)) +
-            "°C · " +
-            wmoWeatherLabel(current.weather_code);
-          weatherCache[key] = text;
-          show(text);
+          weatherCache[key] = payload;
+          show(payload);
         })
-        .catch(function () {});
+        .catch(function () {
+          show(null);
+        });
+    }
+
+    function snapshotAddress(place) {
+      return place.road_address_name || place.address_name || "";
+    }
+
+    function extraRowsHtml(place, geocoded) {
+      if (!place) {
+        return "";
+      }
+      var rows = [];
+      if (
+        place.overview &&
+        place.summary &&
+        place.summary !== place.overview
+      ) {
+        rows.push(
+          '<li><span class="detail-extra-label">' +
+            escapeHtml(t("extra.summary")) +
+            "</span><span>" +
+            escapeHtml(place.summary) +
+            "</span></li>"
+        );
+      }
+      if (place.topic) {
+        rows.push(
+          '<li><span class="detail-extra-label">' +
+            escapeHtml(t("extra.topic")) +
+            "</span><span>" +
+            escapeHtml(groupLabel(place.topic) || place.topic) +
+            "</span></li>"
+        );
+      }
+      if (place.kind === "history" || place.kind === "tourism") {
+        rows.push(
+          '<li><span class="detail-extra-label">' +
+            escapeHtml(t("extra.kind")) +
+            "</span><span>" +
+            escapeHtml(t("kind." + place.kind)) +
+            "</span></li>"
+        );
+      }
+      var listed = (place.address_name || "").trim();
+      var geo = (geocoded || "").trim();
+      if (listed && geo && listed !== geo) {
+        rows.push(
+          '<li><span class="detail-extra-label">' +
+            escapeHtml(t("extra.listedAddress")) +
+            "</span><span>" +
+            escapeHtml(listed) +
+            "</span></li>"
+        );
+      }
+      if (place.y && place.x) {
+        rows.push(
+          '<li><span class="detail-extra-label">' +
+            escapeHtml(t("extra.coords")) +
+            "</span><span>" +
+            escapeHtml(place.y + ", " + place.x) +
+            "</span></li>"
+        );
+      }
+      return rows.join("");
+    }
+
+    function fillDetailExtra(place, geocoded) {
+      var el = detailExtraEl();
+      if (!el) {
+        return;
+      }
+      var html = extraRowsHtml(place, geocoded);
+      el.innerHTML = html;
+      el.hidden = !html;
+    }
+
+    function setDetailAddress(text) {
+      var el = detailAddressEl();
+      if (!el) {
+        return;
+      }
+      el.textContent = text || "";
+      el.setAttribute("aria-label", t("address"));
+      detailGeocodedAddress = text || "";
+      fillDetailExtra(detailPlace, detailGeocodedAddress);
+    }
+
+    function loadPlaceAddress(place, lat, lng, seq) {
+      setDetailAddress(snapshotAddress(place));
+      if (!isFinite(lat) || !isFinite(lng)) {
+        return;
+      }
+      geocoder.coord2Address(lng, lat, function (result, status) {
+        if (seq !== weatherSeq) {
+          return;
+        }
+        if (status !== kakao.maps.services.Status.OK || !result[0]) {
+          return;
+        }
+        var full =
+          (result[0].road_address && result[0].road_address.address_name) ||
+          (result[0].address && result[0].address.address_name);
+        if (full) {
+          setDetailAddress(full);
+        }
+      });
+    }
+
+    function restoreDetailCamera() {
+      if (!detailCamera) {
+        return;
+      }
+      skipIdleOnce = true;
+      map.setCenter(
+        new kakao.maps.LatLng(detailCamera.lat, detailCamera.lng)
+      );
+      map.setLevel(detailCamera.level);
+      detailCamera = null;
     }
 
     function openPlaceDetail(place) {
       if (!detailSheet) {
         return;
       }
-      var address = place.road_address_name || place.address_name || "";
       var lat = parseFloat(place.y);
       var lng = parseFloat(place.x);
+      var category = categoryLabel(place);
+      weatherSeq += 1;
+      var seq = weatherSeq;
+      detailPlace = place;
       detailTitle.textContent = place.place_name || "";
-      detailMeta.textContent = [place.category_name, address]
-        .filter(Boolean)
-        .join(" · ");
-      loadPlaceWeather(lat, lng);
-      var parts = [];
-      parts.push(
-        '<div class="detail-hero"><img alt="" referrerpolicy="no-referrer" src="' +
-          placeThumbSrc(place) +
-          '"></div>'
-      );
-      if (place.badges && place.badges.length) {
-        parts.push(badgeHtml(place.badges));
+      detailMeta.textContent = category;
+      detailMeta.hidden = !category;
+      var showWeather = shouldShowPlaceWeather(lat, lng);
+      var weatherKey =
+        isFinite(lat) && isFinite(lng)
+          ? lat.toFixed(2) + "," + lng.toFixed(2)
+          : "";
+      var cachedWeather =
+        showWeather && isForecastPayload(weatherCache[weatherKey])
+          ? weatherCache[weatherKey]
+          : null;
+      var forecastSlot = "";
+      if (showWeather) {
+        if (cachedWeather) {
+          forecastSlot =
+            '<div class="detail-forecast">' +
+            detailForecastMarkup(cachedWeather) +
+            "</div>";
+        } else {
+          forecastSlot =
+            '<div class="detail-forecast is-pending" aria-busy="true" aria-label="' +
+            escapeHtml(t("weather")) +
+            '">' +
+            forecastPendingMarkup() +
+            "</div>";
+        }
       }
-      var overview = place.overview || place.summary || "";
-      if (overview) {
-        parts.push(
-          '<p class="detail-overview">' + escapeHtml(overview) + "</p>"
-        );
-      } else {
-        parts.push(
-          '<p class="detail-overview">이 장소에 대한 상세 설명이 아직 없습니다.</p>'
-        );
+      var aside = [];
+      aside.push(
+        '<div class="detail-status">' +
+          '<p class="detail-address" aria-label="' +
+          escapeHtml(t("address")) +
+          '"></p>' +
+          "</div>"
+      );
+      if (forecastSlot) {
+        aside.push(forecastSlot);
+      }
+      if (place.badges && place.badges.length) {
+        aside.push(badgeHtml(place.badges));
       }
       var facts = [];
       if (place.useTime) {
         facts.push(
-          "<li><span class=\"detail-fact-label\">시간</span><span>" +
+          '<li><span class="detail-fact-label">' +
+            escapeHtml(t("fact.hours")) +
+            "</span><span>" +
             escapeHtml(place.useTime) +
             "</span></li>"
         );
       }
       if (place.restDate) {
         facts.push(
-          "<li><span class=\"detail-fact-label\">휴무</span><span>" +
+          '<li><span class="detail-fact-label">' +
+            escapeHtml(t("fact.rest")) +
+            "</span><span>" +
             escapeHtml(place.restDate) +
             "</span></li>"
         );
       }
       if (place.tel) {
         facts.push(
-          "<li><span class=\"detail-fact-label\">전화</span><span>" +
+          '<li><span class="detail-fact-label">' +
+            escapeHtml(t("fact.phone")) +
+            "</span><span>" +
             escapeHtml(place.tel) +
             "</span></li>"
         );
@@ -1518,7 +1783,9 @@
       if (place.homepage) {
         var href = place.homepage.indexOf("http") === 0 ? place.homepage : "";
         facts.push(
-          "<li><span class=\"detail-fact-label\">웹</span><span>" +
+          '<li><span class="detail-fact-label">' +
+            escapeHtml(t("fact.web")) +
+            "</span><span>" +
             (href
               ? '<a href="' +
                 escapeHtml(href) +
@@ -1530,11 +1797,34 @@
         );
       }
       if (facts.length) {
-        parts.push('<ul class="detail-facts">' + facts.join("") + "</ul>");
+        aside.push('<ul class="detail-facts">' + facts.join("") + "</ul>");
       }
+      var parts = [];
+      parts.push(
+        '<div class="detail-top">' +
+          '<div class="detail-hero"><img alt="" referrerpolicy="no-referrer" src="' +
+          placeThumbSrc(place) +
+          '"></div>' +
+          '<div class="detail-aside">' +
+          aside.join("") +
+          "</div>" +
+          "</div>"
+      );
+      var overview = place.overview || place.summary || "";
+      if (overview) {
+        parts.push(
+          '<p class="detail-overview">' + escapeHtml(overview) + "</p>"
+        );
+      }
+      parts.push('<ul class="detail-extra" hidden></ul>');
       detailBody.innerHTML = parts.join("");
       var hero = detailBody.querySelector(".detail-hero img");
       bindThumbFallback(hero, place);
+      fillDetailExtra(place, snapshotAddress(place));
+      loadPlaceAddress(place, lat, lng, seq);
+      if (showWeather && !cachedWeather) {
+        loadPlaceWeather(lat, lng, seq);
+      }
       sheet.hidden = true;
       detailSheet.hidden = false;
       setSheetState(sheetState === "collapsed" ? "mid" : sheetState);
@@ -1545,6 +1835,9 @@
         return false;
       }
       clearDetailWeather();
+      restoreDetailCamera();
+      detailPlace = null;
+      detailGeocodedAddress = "";
       detailSheet.hidden = true;
       detailSheet.style.height = "";
       detailBody.innerHTML = "";
@@ -1598,12 +1891,12 @@
 
     function sheetStateLabel(state) {
       if (state === "collapsed") {
-        return "바텀시트 중간 크기로 펼치기";
+        return t("sheetToggleMid");
       }
       if (state === "mid") {
-        return "바텀시트 최대로 펼치기";
+        return t("sheetToggleMax");
       }
-      return "바텀시트 접기";
+      return t("sheetToggleCollapse");
     }
 
     function viewportHeight() {
@@ -1651,6 +1944,20 @@
         return false;
       }
       tools.classList.remove("is-layers-open");
+      if (toggle) {
+        toggle.classList.remove("is-open");
+        toggle.setAttribute("aria-expanded", "false");
+      }
+      return true;
+    }
+
+    function closeLangPanel() {
+      var tools = document.getElementById("map-tools");
+      var toggle = document.getElementById("lang-toggle");
+      if (!tools || !tools.classList.contains("is-lang-open")) {
+        return false;
+      }
+      tools.classList.remove("is-lang-open");
       if (toggle) {
         toggle.classList.remove("is-open");
         toggle.setAttribute("aria-expanded", "false");
@@ -1823,10 +2130,7 @@
 
     function moveToCurrentLocation() {
       if (!navigator.geolocation) {
-        showDialog(
-          "현재 위치 불가",
-          "이 브라우저에서는 현재 위치를 사용할 수 없습니다."
-        );
+        showDialog(t("geoUnavailableTitle"), t("geoUnavailable"));
         return;
       }
 
@@ -1843,17 +2147,17 @@
           locationBtn.classList.add("is-active");
         },
         function (error) {
-          var message = "현재 위치를 가져올 수 없습니다.";
+          var message = t("geoError");
 
           if (error && error.code === error.PERMISSION_DENIED) {
-            message = "위치 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.";
+            message = t("geoDenied");
           } else if (error && error.code === error.POSITION_UNAVAILABLE) {
-            message = "현재 위치 정보를 사용할 수 없습니다.";
+            message = t("geoUnavailableInfo");
           } else if (error && error.code === error.TIMEOUT) {
-            message = "현재 위치를 가져오는 시간이 초과되었습니다.";
+            message = t("geoTimeout");
           }
 
-          showDialog("현재 위치 오류", message);
+          showDialog(t("geoErrorTitle"), message);
         }
       );
     }
@@ -1959,10 +2263,59 @@
       return !!(tools && tools.contains(node));
     }
 
+    function applyI18n() {
+      MapI18n.applyStatic();
+      var lang = MapI18n.getLang();
+      var toggle = document.getElementById("lang-toggle");
+      if (toggle) {
+        toggle.textContent = MapI18n.LANG_CODES[lang] || "한";
+      }
+      document.querySelectorAll(".lang-option").forEach(function (button) {
+        var on = button.getAttribute("data-lang") === lang;
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      if (catalogKind === "tourism") {
+        refreshTourismFilterChips();
+      }
+      if (detailPlace && detailSheet && !detailSheet.hidden) {
+        openPlaceDetail(detailPlace);
+      } else if (catalogKind && sheet && !sheet.hidden) {
+        var all = attractionWorkingSet();
+        var inView = placesInMapBounds(all);
+        renderAttractionList(
+          placeItems.map(function (item) {
+            return item.place;
+          }),
+          inView.length,
+          all.length
+        );
+      } else if (sheet && !sheet.hidden && activeSearchKeyword) {
+        renderPlaceList(
+          placeItems.map(function (item) {
+            return item.place;
+          }),
+          t("searchResults", { q: activeSearchKeyword })
+        );
+      }
+      clusterItems.forEach(function (cluster) {
+        cluster.el.setAttribute(
+          "aria-label",
+          t("clusterZoom", { n: cluster.count })
+        );
+      });
+      var sheetLabel = sheetStateLabel(sheetState);
+      sheetToggle.setAttribute("aria-label", sheetLabel);
+      if (detailToggle) {
+        detailToggle.setAttribute("aria-label", sheetLabel);
+      }
+    }
+
     function bindMapTools() {
       var tools = document.getElementById("map-tools");
       var layersToggle = document.getElementById("layers-toggle");
+      var langToggle = document.getElementById("lang-toggle");
       var layersIgnoreUntil = 0;
+      var langIgnoreUntil = 0;
 
       document.getElementById("zoom-in").addEventListener("click", function () {
         map.setLevel(map.getLevel() - 1);
@@ -1977,6 +2330,7 @@
         function (event) {
           event.preventDefault();
           event.stopPropagation();
+          closeLangPanel();
           var open = !tools.classList.contains("is-layers-open");
           tools.classList.toggle("is-layers-open", open);
           layersToggle.classList.toggle("is-open", open);
@@ -1987,19 +2341,52 @@
         }
       );
 
+      langToggle.addEventListener(
+        "click",
+        function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeLayersPanel();
+          var open = !tools.classList.contains("is-lang-open");
+          tools.classList.toggle("is-lang-open", open);
+          langToggle.classList.toggle("is-open", open);
+          langToggle.setAttribute("aria-expanded", open ? "true" : "false");
+          if (open) {
+            langIgnoreUntil = Date.now() + 400;
+          }
+        }
+      );
+
+      document.querySelectorAll(".lang-option").forEach(function (button) {
+        button.addEventListener("click", function () {
+          var next = button.getAttribute("data-lang");
+          if (!next || next === MapI18n.getLang()) {
+            closeLangPanel();
+            return;
+          }
+          MapI18n.setLang(next);
+          applyI18n();
+          closeLangPanel();
+        });
+      });
+
       document.addEventListener(
         "pointerdown",
         function (event) {
-          if (!tools.classList.contains("is-layers-open")) {
-            return;
-          }
-          if (Date.now() < layersIgnoreUntil) {
+          var layersOpen = tools.classList.contains("is-layers-open");
+          var langOpen = tools.classList.contains("is-lang-open");
+          if (!layersOpen && !langOpen) {
             return;
           }
           if (eventInsideMapTools(event)) {
             return;
           }
-          closeLayersPanel();
+          if (layersOpen && Date.now() >= layersIgnoreUntil) {
+            closeLayersPanel();
+          }
+          if (langOpen && Date.now() >= langIgnoreUntil) {
+            closeLangPanel();
+          }
         },
         true
       );
@@ -2007,6 +2394,7 @@
       window.addEventListener("resize", function () {
         if (!isCompactMap()) {
           closeLayersPanel();
+          closeLangPanel();
         }
       });
 

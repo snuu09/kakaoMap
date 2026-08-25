@@ -68,9 +68,9 @@
 
 ## Component Specs
 
-Search is the CTA. Primary button is ink, not blue. Location is a bottom-right FAB (white chrome, accent crosshair), never inside the search row. Address chip is left-aligned under filters. Chip order: 기본, 명소 (`icons/taegeukgi.svg` official flag), 관광 (`icons/attraction.svg`), then brands. Main chips are icon then label (`padding: 0 14px 0 10px`). **내 근처** is an icon-less `aria-pressed` option while 명소 or 관광 is on (`accent-soft` when pressed). Tourism shows `#tourism-groups` first; `#tourism-cat3-row` (label like 산의 세부) appears only after a group is chosen. History pins use the official flag; other tourism pins use category icons. Catalog thumbs use `image` then Carto. Detail sheet is the same chrome with a back control and Open-Meteo weather under the title when GPS is missing or the place is farther than 3km.
+Search is the CTA. Primary button is ink, not blue. Location is a bottom-right FAB (white chrome, accent crosshair), never inside the search row. Address chip is left-aligned under filters. Chip order: 기본, 명소 (`icons/taegeukgi.svg` official flag), 관광 (`icons/attraction.svg`), then brands. Main chips are icon then label (`padding: 0 14px 0 10px`). **내 근처** is an icon-less `aria-pressed` option while 명소 or 관광 is on (`accent-soft` when pressed). Language lives in the right tool stack (한/EN/日/中, pressed `accent-soft`); compact opens below the toggle. Tourism shows `#tourism-groups` first; `#tourism-cat3-row` (label like 산의 세부) appears only after a group is chosen. History pins use the official flag; other tourism pins use category icons. Catalog thumbs use `image` then Carto. Detail sheet: desktop photo left, address + reserved 3-day forecast + badges + hours on the right, overview full width below, leftover fields in `.detail-extra`. Compact stacks the photo first. Back is a 32px chevron. Opening a list row zooms to the place (level 3) and back restores the previous camera.
 
-Compact: 16px search input, 8px gap between search and zoom, layers panel opens **below** the toggle. Hover only under `@media (hover: hover)`.
+Compact: 16px search input, 8px gap between search and zoom, layers and language menus open **below** their toggles. Hover only under `@media (hover: hover)`.
 
 Motion: existing marker/cluster fade only (220ms). No GSAP, no list stagger on map pan.
 
