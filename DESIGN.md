@@ -103,7 +103,7 @@ components:
     typography: "{typography.meta}"
     rounded: "{rounded.pill}"
     height: "40px"
-    padding: "0 10px 0 14px"
+    padding: "0 14px 0 10px"
   chip-active:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.on-primary}"
@@ -169,9 +169,9 @@ Pretendard가 한글 본문이다. 시스템 산세리프는 fallback이다. Int
 
 **Breakpoint.** 컴팩트는 `max-width: 767px`. 데스크톱은 `min-width: 768px`.
 
-**Desktop (768up).** 검색 제출은 「검색」 텍스트. 줌·타입·오버레이를 모두 펼친다. 시트가 열려도 `map-tools` z-index는 시트보다 높아 줌이 잘리지 않는다. 호버는 `@media (hover: hover)`만.
+**Desktop (768up).** 검색 제출은 「검색」 텍스트. 줌·타입·오버레이·언어 2×2를 모두 펼친다. 시트가 열려도 `map-tools` z-index는 시트보다 높아 줌이 잘리지 않는다. 호버는 `@media (hover: hover)`만.
 
-**Compact (767down).** `--control-h: 44px`. 검색 입력은 16px(iOS 확대 방지). 제출은 돋보기만. 검색 열 너비는 왼쪽 inset + 줌 44px + **검색–줌 간격 8px** + 오른쪽 inset을 뺀다. 줌 `+`/`-`만 상시. 타입·오버레이는 레이어 토글 **아래**로 펼치는 패널. 시트 중간은 `min(38dvh, 340px)`, 최대는 `100dvh - 72px`. 최대일 때 레이어 패널·토글·현위치 버튼을 숨기고 줌만 남긴다. `setBounds` 하단 패딩은 시트 실제 높이에 맞춘다. 안전 영역은 `env(safe-area-inset-*)`로 민다.
+**Compact (767down).** `--control-h: 44px`. 검색 입력은 16px(iOS 확대 방지). 제출은 돋보기만. 검색 열 너비는 왼쪽 inset + 줌 44px + **검색–줌 간격 8px** + 오른쪽 inset을 뺀다. 줌 `+`/`-`만 상시. 타입·오버레이는 레이어 토글 **아래**, 언어는 레이어 아래 토글 **아래**로 펼친다. 시트 중간은 `min(38dvh, 340px)`, 최대는 `100dvh - 72px`. 최대일 때 레이어 패널·토글·현위치 버튼을 숨기고 줌과 언어는 남긴다. `setBounds` 하단 패딩은 시트 실제 높이에 맞춘다. 안전 영역은 `env(safe-area-inset-*)`로 민다.
 
 ## Elevation & Depth
 

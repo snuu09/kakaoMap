@@ -3,7 +3,7 @@
 This page overrides `design-system/kakaomap/MASTER.md` and aligns with root `DESIGN.md`.
 
 - Keep floating white search, chips, tools, location FAB, and bottom sheet.
-- Primary actions: `#191919`. Accent: `#2563EB` for geolocation icon/dot, focus, and the pressed **내 근처** option.
+- Primary actions: `#191919`. Accent: `#2563EB` for geolocation icon/dot, focus, and pressed **내 근처** / language options.
 - Typeface: Pretendard, not Noto-only and not Inter-only.
 - Do not apply Vibrant & Block-based, event orange, cream canvas, or marketplace hero sections.
 - Density stays map-chrome (8–16px), not landing-page 48px section gaps.

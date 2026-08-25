@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-25T15:16:00+09:00",
+  "generatedAt": "2026-08-25T18:00:00+09:00",
   "title": "Design System: 카카오 지도",
   "extensions": {
     "colorMeta": {
@@ -85,7 +85,7 @@
       "name": "Tool Button",
       "kind": "button",
       "refersTo": "tool-btn",
-      "description": "Map type and overlay rows. Compact: stacked below layers toggle.",
+      "description": "Map type, overlay, and language rows. Compact: stacked below layers or language toggle.",
       "html": "<button class=\"ds-tool-btn\" type=\"button\">지도</button>",
       "css": ".ds-tool-btn { min-width: 88px; height: 40px; border: 0; background: #fff; color: #191919; font: 600 12px Pretendard, sans-serif; cursor: pointer; } .ds-tool-btn[data-active=\"true\"] { background: #191919; color: #fff; }"
     },
@@ -100,7 +100,7 @@
   ],
   "narrative": {
     "northStar": "Map-first Kakao chrome",
-    "overview": "The map is the canvas. Floating white chrome, ink actions, and a single location-blue accent sit on top without becoming a marketing page. Search, brand chips, tools, the location FAB, and the place sheet share one surface language. Compact screens keep zoom and fold type/overlay under a layers toggle.",
+    "overview": "The map is the canvas. Floating white chrome, ink actions, and a single location-blue accent sit on top without becoming a marketing page. Search, brand chips, tools, language, the location FAB, and the place sheet share one surface language. Compact screens keep zoom and fold type/overlay and language under toggles that open below.",
     "keyCharacteristics": [
       "White floating chrome",
       "Ink primary actions",
@@ -117,7 +117,7 @@
       },
       {
         "name": "The One Accent Rule",
-        "body": "Blue is for geolocation and keyboard focus. Search and selected chips stay ink.",
+        "body": "Blue is for geolocation, keyboard focus, and pressed 내 근처 / language options. Search and selected chips stay ink.",
         "section": "colors"
       }
     ],
@@ -125,12 +125,12 @@
       "Keep Kakao-like white bars and black actions.",
       "Use brand filter icons as-is.",
       "Keep 8px between compact search and zoom; 16px search input.",
-      "Open compact layers below the toggle.",
+      "Open compact layers and language menus below their toggles.",
       "Respect prefers-reduced-motion on pins."
     ],
     "donts": [
       "Do not apply the generator orange/cream palette.",
-      "Do not put location inside the search row.",
+      "Do not put location or language inside the search row.",
       "Do not add landing-page structure or GSAP.",
       "Do not change search, filter, cluster, or sheet behavior for styling."
     ]

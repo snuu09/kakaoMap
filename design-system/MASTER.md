@@ -53,8 +53,8 @@
 
 | Name | Query | Usage |
 |------|-------|-------|
-| compact | `max-width: 767px` | Icon search, zoom-only, layers dropdown below toggle |
-| desktop | `min-width: 768px` | Full tool stack, text search submit |
+| compact | `max-width: 767px` | Icon search, zoom-only, layers and language menus below their toggles |
+| desktop | `min-width: 768px` | Full tool stack including language 2×2, text search submit |
 
 ### Shadow Depths
 
